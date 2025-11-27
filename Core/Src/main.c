@@ -46,7 +46,8 @@ UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
-
+static uint8_t rxBuffer[UART_RX_BUF_SIZE];
+static uint16_t lastBufPos = 0u;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -55,7 +56,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void uart2_rx_process(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -95,27 +96,16 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  uint8_t rxBuffer[UART_RX_BUF_SIZE];
-  uint16_t lastBufPos = 0u;
   HAL_UART_Receive_DMA(&huart2, rxBuffer, UART_RX_BUF_SIZE);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 while (1) {
-  // simulate LCD display
-  HAL_Delay(10);
+    // simulate LCD display
+    HAL_Delay(10);
 
-  uint16_t bufPos = UART_RX_BUF_SIZE - __HAL_DMA_GET_COUNTER(huart2.hdmarx);
-  if (bufPos != lastBufPos) {
-    uint16_t len = bufPos - lastBufPos;
-
-    HAL_UART_Transmit(&huart2, &rxBuffer[lastBufPos], len, HAL_MAX_DELAY);
-
-    // obsługa danych w buforze
-
-    lastBufPos = bufPos;
-  }
+    uart2_rx_process();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -248,7 +238,39 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+static void uart_parse_byte(uint8_t byte) {
+    HAL_UART_Transmit(&huart2, &byte, 1, HAL_MAX_DELAY);
+};
 
+static void uart2_rx_process(void) {
+  uint16_t bufPos = UART_RX_BUF_SIZE - __HAL_DMA_GET_COUNTER(huart2.hdmarx);
+
+  if (bufPos != lastBufPos) {
+
+    if(bufPos > lastBufPos)
+    {
+      /* Buffer not overflowed */
+      for (uint16_t i = lastBufPos; i < bufPos; i++) {
+        uart_parse_byte(rxBuffer[i]);
+      }
+    }
+    else
+    {
+      /* Buffer overflowed */
+      /* First parse data at the end of the buffer */
+      for (uint16_t i = lastBufPos; i < UART_RX_BUF_SIZE; i++) {
+        uart_parse_byte(rxBuffer[i]);
+      }
+
+      /* Then parse data at the beginning of the buffer */
+      for (uint16_t i = 0; i < bufPos; i++) {
+        uart_parse_byte(rxBuffer[i]);
+      }
+    }
+
+    lastBufPos = bufPos;
+  }
+}
 /* USER CODE END 4 */
 
 /**
