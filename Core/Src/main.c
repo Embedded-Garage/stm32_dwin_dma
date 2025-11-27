@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define UART_RX_BUF_SIZE 1024u
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -43,6 +43,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
 
@@ -51,6 +52,7 @@ UART_HandleTypeDef huart2;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -90,21 +92,34 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  uint8_t rxBuffer[UART_RX_BUF_SIZE];
+  uint16_t lastBufPos = 0u;
+  HAL_UART_Receive_DMA(&huart2, rxBuffer, UART_RX_BUF_SIZE);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    HAL_UART_Transmit(&huart2, (uint8_t *)"Hello, UART!\r\n", 14, HAL_MAX_DELAY);
-    HAL_Delay(1000);
+while (1) {
+  // simulate LCD display
+  HAL_Delay(10);
+
+  uint16_t bufPos = UART_RX_BUF_SIZE - __HAL_DMA_GET_COUNTER(huart2.hdmarx);
+  if (bufPos != lastBufPos) {
+    uint16_t len = bufPos - lastBufPos;
+
+    HAL_UART_Transmit(&huart2, &rxBuffer[lastBufPos], len, HAL_MAX_DELAY);
+
+    // obsługa danych w buforze
+
+    lastBufPos = bufPos;
+  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+}
   /* USER CODE END 3 */
 }
 
@@ -193,6 +208,23 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMAMUX1_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
