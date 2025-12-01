@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "dwin_comm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -239,7 +239,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 static void uart_parse_byte(uint8_t byte) {
-    HAL_UART_Transmit(&huart2, &byte, 1, HAL_MAX_DELAY);
+    dwin_comm_parse(byte);
 };
 
 static void uart2_rx_process(void) {
