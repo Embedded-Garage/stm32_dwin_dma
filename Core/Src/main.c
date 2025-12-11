@@ -57,6 +57,8 @@ static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 static void uart2_rx_process(void);
+static void dwin_button_up_callback(uint16_t address, uint16_t value);
+static void dwin_button_down_callback(uint16_t address, uint16_t value);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -96,6 +98,9 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  dwin_comm_register_callback(0x0001, dwin_button_up_callback);
+  dwin_comm_register_callback(0x0002, dwin_button_down_callback);
+
   HAL_UART_Receive_DMA(&huart2, rxBuffer, UART_RX_BUF_SIZE);
   /* USER CODE END 2 */
 
@@ -270,6 +275,16 @@ static void uart2_rx_process(void) {
 
     lastBufPos = bufPos;
   }
+}
+
+static void dwin_button_up_callback(uint16_t address, uint16_t value)
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)"button_up pressed\r\n", 19, HAL_MAX_DELAY);
+}
+
+static void dwin_button_down_callback(uint16_t address, uint16_t value)
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)"button_down pressed\r\n", 21, HAL_MAX_DELAY);
 }
 /* USER CODE END 4 */
 

@@ -14,6 +14,8 @@ extern UART_HandleTypeDef huart2;
 
 #define DWIN_MAX_DATA_LENGTH 255u
 
+#define DWIN_MAX_CALLBACKS 10u
+
 typedef enum {
   PARSE_STATE_SOF1,
   PARSE_STATE_SOF2,
@@ -22,10 +24,18 @@ typedef enum {
 } dwin_comm_parse_state_e;
 
 typedef struct {
+  uint16_t address;
+  dwin_comm_callback_t callback;
+} dwin_comm_callback_entry_s;
+
+typedef struct {
   dwin_comm_parse_state_e parser_state;
   uint8_t length;
   uint8_t data_index;
   uint8_t data[DWIN_MAX_DATA_LENGTH];
+
+  dwin_comm_callback_entry_s callbacks[DWIN_MAX_CALLBACKS];
+  uint8_t callback_count;
 } dwin_comm_ctx_s;
 
 static dwin_comm_ctx_s ctx = {.parser_state = PARSE_STATE_SOF1};
@@ -65,6 +75,25 @@ void dwin_comm_parse(uint8_t character) {
   default:
     break;
   }
+}
+
+bool dwin_comm_register_callback(uint16_t address,
+                                 dwin_comm_callback_t callback) {
+  if (ctx.callback_count >= DWIN_MAX_CALLBACKS) {
+    return false;
+  }
+  if (callback == NULL) {
+    return false;
+  }
+
+  dwin_comm_callback_entry_s *entry = &ctx.callbacks[ctx.callback_count];
+
+  entry->address = address;
+  entry->callback = callback;
+
+  ctx.callback_count++;
+
+  return true;
 }
 
 static void parse_rx_data(uint8_t *data, uint8_t len) {
@@ -113,10 +142,14 @@ static void parse_read_command(uint8_t *payload, uint8_t payload_length) {
   }
 }
 
-static void handle_read_vp(uint16_t address, uint16_t value)
-{
-  char tmp_buf[64u];
-  size_t tmp_len = sprintf(tmp_buf, "Address: 0x%04X, Value: 0x%04X\r\n", address, value);
+static void handle_read_vp(uint16_t address, uint16_t value) {
+  for (uint8_t i = 0u; i < ctx.callback_count; i++) {
+    dwin_comm_callback_entry_s *entry = &ctx.callbacks[i];
 
-  HAL_UART_Transmit(&huart2, (uint8_t *)tmp_buf, tmp_len, HAL_MAX_DELAY);
+    if (entry->address == address) {
+      if (entry->callback != NULL) {
+        entry->callback(address, value);
+      }
+    }
+  }
 }
