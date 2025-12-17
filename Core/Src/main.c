@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "dwin_comm.h"
+#include "stm32g4xx_hal_gpio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -98,6 +99,9 @@ int main(void)
   dwin_comm_register_callback(0x0001, dwin_led_callback);
 
   HAL_UART_Receive_DMA(&huart2, rxBuffer, UART_RX_BUF_SIZE);
+
+  GPIO_PinState lastPinState = GPIO_PIN_RESET;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -107,6 +111,23 @@ while (1) {
     HAL_Delay(10);
 
     uart2_rx_process();
+
+    /* USER button handling */
+
+    GPIO_PinState currentPinState = HAL_GPIO_ReadPin(USER_BUTTON_GPIO_Port, USER_BUTTON_Pin);
+
+    if (currentPinState != lastPinState) {
+      lastPinState = currentPinState;
+
+      if (GPIO_PIN_SET == currentPinState) {
+        // Button pressed
+        dwin_comm_set_vp_value(0x0002, 1u);
+      } else {
+        // Button released
+        dwin_comm_set_vp_value(0x0002, 0u);
+      }
+    }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

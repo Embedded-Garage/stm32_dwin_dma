@@ -1,5 +1,6 @@
 #include "dwin_comm.h"
 
+#include "dwin_common.h"
 #include "stm32g4xx_hal.h"
 #include "stm32g4xx_hal_uart.h"
 #include <stdio.h>
@@ -9,7 +10,6 @@ extern UART_HandleTypeDef huart2;
 #define DWIN_SOF1 0x5Au
 #define DWIN_SOF2 0xA5u
 
-#define DWIN_COMMAND_READ 0x83u
 #define DWIN_COMMAND_READ_HEADER_LENGTH 3u
 
 #define DWIN_MAX_DATA_LENGTH 255u
@@ -94,6 +94,21 @@ bool dwin_comm_register_callback(uint16_t address,
   ctx.callback_count++;
 
   return true;
+}
+
+bool dwin_comm_set_vp_value(uint16_t address, uint16_t value) {
+  dwin_frame_write_s frame = {.sof1 = DWIN_SOF1,
+                              .sof2 = DWIN_SOF2,
+                              .length = sizeof(dwin_frame_write_s) -
+                                        3u, // Exclude SOF1, SOF2, Length
+                              .command = DWIN_COMMAND_WRITE,
+                              .address = __builtin_bswap16(address),
+                              .value = __builtin_bswap16(value)};
+
+  HAL_StatusTypeDef status = HAL_UART_Transmit(
+      &huart2, (uint8_t *)&frame, sizeof(dwin_frame_write_s), HAL_MAX_DELAY);
+
+  return (status == HAL_OK) ? true : false;
 }
 
 static void parse_rx_data(uint8_t *data, uint8_t len) {
