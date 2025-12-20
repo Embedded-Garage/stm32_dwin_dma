@@ -1,5 +1,4 @@
-#ifndef DWIN_COMMON_H
-#define DWIN_COMMON_H
+#pragma once
 
 #include <stdint.h>
 
@@ -14,5 +13,3 @@ typedef struct{
     uint16_t address;
     uint16_t value;
 } __attribute__((packed)) dwin_frame_write_s;
-
-#endif /* DWIN_COMMON_H */

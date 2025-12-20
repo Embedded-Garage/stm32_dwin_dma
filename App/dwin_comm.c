@@ -5,8 +5,6 @@
 #include "stm32g4xx_hal_uart.h"
 #include <stdio.h>
 
-extern UART_HandleTypeDef huart2;
-
 #define DWIN_SOF1 0x5Au
 #define DWIN_SOF2 0xA5u
 
@@ -17,6 +15,7 @@ extern UART_HandleTypeDef huart2;
 #define DWIN_MAX_CALLBACKS 10u
 
 typedef enum {
+  PARSE_STATE_NOT_INITIALIZED = 0,
   PARSE_STATE_SOF1,
   PARSE_STATE_SOF2,
   PARSE_STATE_LEN,
@@ -36,16 +35,33 @@ typedef struct {
 
   dwin_comm_callback_entry_s callbacks[DWIN_MAX_CALLBACKS];
   uint8_t callback_count;
+  UART_HandleTypeDef *huart;
 } dwin_comm_ctx_s;
 
-static dwin_comm_ctx_s ctx = {.parser_state = PARSE_STATE_SOF1};
+static dwin_comm_ctx_s ctx = {.parser_state = PARSE_STATE_NOT_INITIALIZED};
 
 static void parse_rx_data(uint8_t *data, uint8_t len);
 static void parse_read_command(uint8_t *payload, uint8_t payload_length);
 static void handle_read_vp(uint16_t address, uint16_t value);
 
+bool dwin_comm_init(UART_HandleTypeDef *huart) {
+  if (huart == NULL) {
+    return false;
+  }
+
+  ctx.huart = huart;
+  ctx.parser_state = PARSE_STATE_SOF1;
+  ctx.callback_count = 0u;
+
+  return true;
+}
+
 void dwin_comm_parse(uint8_t character) {
   switch (ctx.parser_state) {
+  case PARSE_STATE_NOT_INITIALIZED:
+    // Not initialized, ignore all data
+    break;
+
   case PARSE_STATE_SOF1:
     if (character == DWIN_SOF1)
       ctx.parser_state = PARSE_STATE_SOF2;
@@ -106,7 +122,7 @@ bool dwin_comm_set_vp_value(uint16_t address, uint16_t value) {
                               .value = __builtin_bswap16(value)};
 
   HAL_StatusTypeDef status = HAL_UART_Transmit(
-      &huart2, (uint8_t *)&frame, sizeof(dwin_frame_write_s), HAL_MAX_DELAY);
+      ctx.huart, (uint8_t *)&frame, sizeof(dwin_frame_write_s), HAL_MAX_DELAY);
 
   return (status == HAL_OK) ? true : false;
 }
